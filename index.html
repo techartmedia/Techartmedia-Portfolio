@@ -18,7 +18,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    body { background-color: #fcfbf7; color: #0f172a; }
+    body { background-color: #ffffff; color: #0f172a; }
     .matte-dark { background-color: #0b1120; }
     
     /* Masonry column layout prevents cards from stretching or elongating adjacent cards */
@@ -42,13 +42,13 @@
     }
     .custom-scroll::-webkit-scrollbar { width: 4px; }
     .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #023059; border-radius: 4px; }
   </style>
 </head>
 <body class="font-['Plus_Jakarta_Sans',sans-serif] antialiased min-h-screen flex flex-col justify-between selection:bg-orange-500 selection:text-white">
 
   <!-- Header with Exact Logo Image -->
-  <header class="sticky top-0 z-40 bg-[#fcfbf7]/95 backdrop-blur-sm border-b border-slate-200">
+  <header class="sticky top-0 z-40 bg-[#ffffff]/95 backdrop-blur-sm border-b border-slate-200">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-4">
       
       <!-- Direct Exact Logo Image from Repository with blend -->
@@ -154,18 +154,24 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block mb-1">Client Name</label>
-            <input type="text" id="projectClient" placeholder="e.g. Sunil Pareta" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-blue-600 outline-none">
+            <label class="block mb-1 font-semibold text-slate-900">Client Name *</label>
+            <input type="text" id="projectClient" required placeholder="e.g. Sunil Pareta / Shagun Trading Co." class="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-blue-600 outline-none">
           </div>
           <div>
-            <label class="block mb-1">Deliverable Tagline / Metric</label>
-            <input type="text" id="projectMetric" placeholder="e.g. Business Card Design" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-blue-600 outline-none">
+            <label class="block mb-1 font-semibold text-slate-900">Completed Date *</label>
+            <input type="date" id="projectDate" required class="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-blue-600 outline-none bg-white">
           </div>
         </div>
 
-        <div>
-          <label class="block mb-1">Live URL (Optional for Websites & Software)</label>
-          <input type="url" id="projectLiveUrl" placeholder="https://example.com" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-blue-600 outline-none">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block mb-1">Deliverable Tagline / Metric</label>
+            <input type="text" id="projectMetric" placeholder="e.g. Business Card Design / Print Flex" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-blue-600 outline-none">
+          </div>
+          <div>
+            <label class="block mb-1">Live URL (Optional)</label>
+            <input type="url" id="projectLiveUrl" placeholder="https://example.com" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:border-blue-600 outline-none">
+          </div>
         </div>
 
         <div>
@@ -211,7 +217,7 @@
       <div class="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h3 id="viewTitle" class="text-base font-bold text-slate-900"></h3>
-          <p id="viewSubtitle" class="text-xs text-slate-500 mt-0.5"></p>
+          <p id="viewSubtitle" class="text-xs text-slate-600 font-medium mt-0.5"></p>
         </div>
         <div id="viewActionLinks" class="flex gap-2"></div>
       </div>
@@ -242,10 +248,33 @@
       supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
 
-    async function initApp() {
+    // 0-SECOND INSTANT LOADING (Hydrate directly from local storage immediately)
+    function initApp() {
+      // Set default today's date in upload form
+      const today = new Date().toISOString().split('T')[0];
+      const dateInput = document.getElementById('projectDate');
+      if (dateInput) dateInput.value = today;
+
+      // 1. Instant Cache Render (0 ms load time)
+      const cached = localStorage.getItem('tam_local_works');
+      if (cached) {
+        worksList = sortWorksByDate(JSON.parse(cached));
+        renderWorks();
+      }
+
       lucide.createIcons();
-      await fetchWorks();
+      // 2. Background sync with Supabase
+      fetchWorks();
       setupRealtime();
+    }
+
+    // Helper: Sort latest added on top, oldest down
+    function sortWorksByDate(list) {
+      return list.sort((a, b) => {
+        const dateA = new Date(a.completion_date || a.created_at || 0);
+        const dateB = new Date(b.completion_date || b.created_at || 0);
+        return dateB - dateA; // Newest first
+      });
     }
 
     async function fetchWorks() {
@@ -254,10 +283,11 @@
           const { data, error } = await supabaseClient
             .from('techartmedia_works')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('completion_date', { ascending: false });
 
-          if (!error && data) {
-            worksList = data;
+          if (!error && data && data.length > 0) {
+            worksList = sortWorksByDate(data);
+            localStorage.setItem('tam_local_works', JSON.stringify(worksList));
             renderWorks();
             return;
           }
@@ -266,9 +296,9 @@
         }
       }
 
-      // Offline / LocalStorage fallback
+      // Fallback
       const saved = localStorage.getItem('tam_local_works');
-      worksList = saved ? JSON.parse(saved) : [];
+      worksList = saved ? sortWorksByDate(JSON.parse(saved)) : [];
       renderWorks();
     }
 
@@ -297,32 +327,49 @@
       }
       emptyState.classList.add('hidden');
 
-      filtered.forEach(item => {
+      filtered.forEach((item, index) => {
         const card = document.createElement('div');
-        // masonry-item ensures this card hugs its own natural height without stretching others
         card.className = "masonry-item bg-white rounded-lg border border-slate-200 overflow-hidden group cursor-pointer hover:border-slate-400 transition";
         card.onclick = () => openViewModal(item);
 
+        // Format nice completion date
+        let displayDate = '';
+        if (item.completion_date) {
+          const d = new Date(item.completion_date);
+          displayDate = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+        }
+
+        // 0-sec optimized media rendering with high priority
         const mediaPreview = item.media_type === 'video'
           ? `<div class="w-full bg-slate-950 flex items-center justify-center relative overflow-hidden">
-               <video src="${item.media_url}" muted loop playsinline class="w-full h-auto max-h-[520px] object-contain pointer-events-none"></video>
+               <video src="${item.media_url}" muted loop playsinline preload="metadata" class="w-full h-auto max-h-[520px] object-contain pointer-events-none"></video>
                <span class="absolute bottom-2 right-2 bg-slate-900/90 text-white text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1">
                  <i data-lucide="play" class="w-3 h-3"></i> Reel
                </span>
              </div>`
           : `<div class="w-full matte-dark flex items-center justify-center overflow-hidden">
-               <img src="${item.media_url}" alt="${item.title}" class="w-full h-auto max-h-[520px] object-contain block" loading="lazy" />
+               <img src="${item.media_url}" alt="${item.title}" class="w-full h-auto max-h-[520px] object-contain block" decoding="async" fetchpriority="${index < 4 ? 'high' : 'auto'}" />
              </div>`;
 
+        // Client Name with explicit "Client Name:" label
         card.innerHTML = `
           ${mediaPreview}
           <div class="p-3.5 bg-white border-t border-slate-100">
             <div class="flex items-center justify-between text-[10.5px] mb-1">
               <span class="font-bold text-orange-600 uppercase tracking-wider">${item.category}</span>
-              <span class="text-slate-400 text-[10px]">${item.format || ''}</span>
+              <span class="text-slate-500 font-semibold text-[10.5px]">${displayDate || item.year || ''}</span>
             </div>
             <h3 class="font-bold text-slate-900 text-sm group-hover:text-blue-700 transition leading-snug">${item.title}</h3>
-            <p class="text-xs text-slate-500 mt-1">${item.client || ''} ${item.metric ? '· ' + item.metric : ''}</p>
+            
+            <!-- Explicit Client Name Format -->
+            <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+              <div class="text-xs text-slate-700 truncate">
+                <span class="font-bold text-slate-900">Client Name:</span> 
+                <span class="font-semibold text-slate-800">${item.client || 'N/A'}</span>
+              </div>
+              ${item.metric ? `<span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded flex-shrink-0">${item.metric}</span>` : ''}
+            </div>
+
             ${isAdmin ? `
               <div class="mt-3 pt-2 border-t border-slate-100 flex justify-end" onclick="event.stopPropagation()">
                 <button onclick="deleteWork('${item.id}')" class="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1">
@@ -332,6 +379,7 @@
             ` : ''}
           </div>
         `;
+
         container.appendChild(card);
       });
 
@@ -341,7 +389,14 @@
     function openViewModal(item) {
       document.getElementById('viewCategoryBadge').innerText = `${item.category} · ${item.format || ''}`;
       document.getElementById('viewTitle').innerText = item.title;
-      document.getElementById('viewSubtitle').innerText = `${item.client || ''} ${item.metric ? ' | ' + item.metric : ''}`;
+      
+      const formattedDate = item.completion_date ? new Date(item.completion_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      
+      document.getElementById('viewSubtitle').innerHTML = `
+        <span class="font-bold text-slate-900">Client Name:</span> ${item.client || 'N/A'} 
+        ${formattedDate ? ' · <span class="text-slate-400">Date:</span> ' + formattedDate : ''} 
+        ${item.metric ? ' · ' + item.metric : ''}
+      `;
 
       const mediaBox = document.getElementById('viewMediaContainer');
       if (item.media_type === 'video') {
@@ -428,6 +483,7 @@
       const category = document.getElementById('projectCategory').value;
       const format = document.getElementById('projectFormat').value;
       const client = document.getElementById('projectClient').value;
+      const completion_date = document.getElementById('projectDate').value;
       const metric = document.getElementById('projectMetric').value;
       const live_url = document.getElementById('projectLiveUrl').value;
       const desc = document.getElementById('projectDesc').value;
@@ -459,7 +515,8 @@
         category,
         format,
         client,
-        year: '2026',
+        completion_date,
+        year: completion_date ? completion_date.split('-')[0] : '2026',
         live_url,
         metric,
         description: desc,
@@ -472,7 +529,7 @@
           const { error } = await supabaseClient.from('techartmedia_works').insert([newRecord]);
           if (error) throw error;
         } catch (err) {
-          console.error("Supabase insert error, falling back to local:", err);
+          console.error("Supabase insert error, saving locally:", err);
           saveLocally(newRecord);
         }
       } else {
@@ -489,6 +546,7 @@
     function saveLocally(item) {
       item.id = 'loc_' + Date.now();
       worksList.unshift(item);
+      worksList = sortWorksByDate(worksList);
       localStorage.setItem('tam_local_works', JSON.stringify(worksList));
       renderWorks();
     }
